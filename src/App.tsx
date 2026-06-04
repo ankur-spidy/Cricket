@@ -60,8 +60,23 @@ export default function App() {
   });
 
   // History stack for perfect Undo/Redo
-  const [matchHistory, setMatchHistory] = useState<MatchState[]>([]);
-  const [historyPointer, setHistoryPointer] = useState<number>(-1);
+  const [matchHistory, setMatchHistory] = useState<MatchState[]>(() => {
+    const saved = localStorage.getItem('cricket_match_history');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return [];
+  });
+  const [historyPointer, setHistoryPointer] = useState<number>(() => {
+    const saved = localStorage.getItem('cricket_history_pointer');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      return isNaN(parsed) ? -1 : parsed;
+    }
+    return -1;
+  });
 
   // Sync state to local storage
   useEffect(() => {
@@ -71,6 +86,17 @@ export default function App() {
       localStorage.removeItem('cricket_active_match');
     }
   }, [match]);
+
+  // Sync history stack to local storage
+  useEffect(() => {
+    if (matchHistory.length > 0) {
+      localStorage.setItem('cricket_match_history', JSON.stringify(matchHistory));
+      localStorage.setItem('cricket_history_pointer', historyPointer.toString());
+    } else {
+      localStorage.removeItem('cricket_match_history');
+      localStorage.removeItem('cricket_history_pointer');
+    }
+  }, [matchHistory, historyPointer]);
 
   // Sync history stack on direct match change if it is empty (like after page refresh)
   useEffect(() => {
@@ -239,6 +265,10 @@ export default function App() {
       ...match,
       status: 'live',
       currentInnings: 2,
+      innings2: {
+        ...match.innings2,
+        isBatting: true,
+      },
     };
 
     setMatch(updatedMatch);
@@ -262,6 +292,8 @@ export default function App() {
     setMatchHistory([]);
     setHistoryPointer(-1);
     localStorage.removeItem('cricket_active_match');
+    localStorage.removeItem('cricket_match_history');
+    localStorage.removeItem('cricket_history_pointer');
   };
 
   // Derive stats
@@ -382,7 +414,7 @@ export default function App() {
                       {activeInnings.teamName.toUpperCase()} is Batting
                     </span>
                     {isFreeHitActive(activeInnings.deliveries) && (
-                      <span className="text-[9px] bg-red-650 outline outline-1 outline-red-500/50 text-white font-black tracking-widest px-2 py-0.5 rounded-full uppercase animate-pulse shadow-md">
+                      <span className="text-[9px] bg-red-600 outline outline-1 outline-red-500/50 text-white font-black tracking-widest px-2 py-0.5 rounded-full uppercase animate-pulse shadow-md">
                         🔥 FREE HIT
                       </span>
                     )}
@@ -426,7 +458,7 @@ export default function App() {
 
                 {/* BENTO ITEM 4: TARGET CHASING DETAIL CARD (Strictly shown only on Innings 2) */}
                 {match.currentInnings === 2 && (
-                  <div className="col-span-2 bg-gray-900 dark:bg-gray-950 p-4.5 rounded-[1.5rem] text-white flex flex-col justify-between border border-transparent dark:border-gray-900 shadow-sm" id="target-information-card">
+                  <div className="col-span-2 bg-gray-900 dark:bg-gray-950 p-5 rounded-[1.5rem] text-white flex flex-col justify-between border border-transparent dark:border-gray-900 shadow-sm" id="target-information-card">
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Target: {matchProg.target} runs</span>
@@ -546,7 +578,8 @@ export default function App() {
               canRedo={historyPointer < matchHistory.length - 1}
               isSecondInnings={match.currentInnings === 2}
               isOverEmpty={isCurrentOverEmpty()}
-              matchCompleted={match.status === 'completed' || match.status === 'break'}
+              matchCompleted={match.status === 'completed'}
+              matchStatus={match.status}
               deliveries={activeInnings.deliveries}
             />
 

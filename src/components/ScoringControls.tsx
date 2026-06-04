@@ -27,6 +27,7 @@ interface ScoringControlsProps {
   isSecondInnings: boolean;
   isOverEmpty: boolean;
   matchCompleted: boolean;
+  matchStatus?: string;
   deliveries?: Delivery[];
 }
 
@@ -42,6 +43,7 @@ export default function ScoringControls({
   isSecondInnings,
   isOverEmpty,
   matchCompleted,
+  matchStatus = 'live',
   deliveries = [],
 }: ScoringControlsProps) {
   const [activeExtraMode, setActiveExtraMode] = useState<'none' | 'B' | 'LB' | 'NB' | 'WD'>('none');
@@ -208,13 +210,13 @@ export default function ScoringControls({
       {/* Main Scoring Grid */}
       <div className="max-w-md mx-auto p-4 space-y-4">
         {isFreeHitActive(deliveries) && !matchCompleted && (
-          <div className="bg-red-500/10 dark:bg-red-950/20 text-red-650 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex items-center justify-center space-x-2">
+          <div className="bg-red-500/10 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex items-center justify-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
             <span>🔥 FREE HIT ACTIVE! (Next ball)</span>
           </div>
         )}
 
-        {matchCompleted ? (
+        {matchStatus === 'completed' ? (
           <div className="py-4 text-center space-y-3" id="match-completed-panel">
             <p className="text-sm font-semibold text-emerald-600">
               Match Stage finalized successfully!
@@ -227,6 +229,15 @@ export default function ScoringControls({
               <RotateCcw size={14} />
               <span>Start New Match</span>
             </button>
+          </div>
+        ) : matchStatus === 'break' ? (
+          <div className="py-5 text-center space-y-1.5" id="match-break-panel">
+            <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+              🏏 Innings Break
+            </p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-normal max-w-xs mx-auto">
+              First innings is complete. Click <strong className="font-extrabold text-blue-600 dark:text-blue-400">"Start 2nd Innings"</strong> above to continue scoring the chase.
+            </p>
           </div>
         ) : activeExtraMode !== 'none' && activeExtraMode !== 'NB' ? (
           /* Smart Extra Selector Overlay Panel */
@@ -318,7 +329,7 @@ export default function ScoringControls({
               <button
                 id="btn-score-dot"
                 onClick={() => handleNormalRun(0)}
-                className="h-13 rounded-xl bg-white dark:bg-gray-900 hover:bg-gray-105 dark:hover:bg-gray-800 text-gray-950 dark:text-gray-50 font-black text-2xl flex items-center justify-center transition active:scale-95 cursor-pointer border border-gray-200 dark:border-gray-800 shadow-xs"
+                className="h-13 rounded-xl bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-950 dark:text-gray-50 font-black text-2xl flex items-center justify-center transition active:scale-95 cursor-pointer border border-gray-200 dark:border-gray-800 shadow-xs"
               >
                 •
               </button>
@@ -522,7 +533,7 @@ export default function ScoringControls({
                 id="btn-nb-select-0"
                 type="button"
                 onClick={() => handleNoBallWithRuns(0)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(1 Run)</span>
@@ -531,7 +542,7 @@ export default function ScoringControls({
                 id="btn-nb-select-1"
                 type="button"
                 onClick={() => handleNoBallWithRuns(1)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB +1</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(2 Runs)</span>
@@ -540,7 +551,7 @@ export default function ScoringControls({
                 id="btn-nb-select-2"
                 type="button"
                 onClick={() => handleNoBallWithRuns(2)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB +2</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(3 Runs)</span>
@@ -549,7 +560,7 @@ export default function ScoringControls({
                 id="btn-nb-select-3"
                 type="button"
                 onClick={() => handleNoBallWithRuns(3)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB +3</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(4 Runs)</span>
@@ -558,7 +569,7 @@ export default function ScoringControls({
                 id="btn-nb-select-4"
                 type="button"
                 onClick={() => handleNoBallWithRuns(4)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB +4</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(5 Runs)</span>
@@ -567,7 +578,7 @@ export default function ScoringControls({
                 id="btn-nb-select-6"
                 type="button"
                 onClick={() => handleNoBallWithRuns(6)}
-                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
               >
                 <span className="text-xs">NB +6</span>
                 <span className="text-[9px] opacity-60 font-mono font-medium">(7 Runs)</span>
@@ -587,7 +598,7 @@ export default function ScoringControls({
                 id="btn-nb-modal-cancel"
                 type="button"
                 onClick={() => setActiveExtraMode('none')}
-                className="w-full py-3.5 bg-gray-900 hover:bg-gray-850 text-gray-300 font-black text-xs tracking-widest uppercase rounded-2xl transition duration-150 border border-gray-800 active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-gray-900 hover:bg-gray-800 text-gray-300 font-black text-xs tracking-widest uppercase rounded-2xl transition duration-150 border border-gray-800 active:scale-95 cursor-pointer"
               >
                 CANCEL
               </button>
