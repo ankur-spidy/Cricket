@@ -97,7 +97,7 @@ export function getMatchProgress(match: MatchState) {
     target,
     remainingRuns,
     remainingBalls,
-    rrr: isFinite(rrr) ? parseFloat(rrr.toFixed(2)) : 100.0,
+    rrr: isFinite(rrr) ? parseFloat(rrr.toFixed(2)) : Infinity,
     targetProgressPercent,
   };
 }

@@ -297,7 +297,7 @@ export default function App() {
   };
 
   // Derive stats
-  const activeInnings = match.currentInnings === 1 ? match.innings1 : match.innings2;
+  const activeInnings = (match.currentInnings === 1 || match.status === 'break') ? match.innings1 : match.innings2;
   const activeStats = calculateInningsStats(activeInnings);
   const matchProg = getMatchProgress(match);
 
@@ -411,9 +411,9 @@ export default function App() {
 
                   <div className="flex items-center space-x-2">
                     <span className="text-[10px] font-bold opacity-85 uppercase tracking-widest">
-                      {activeInnings.teamName.toUpperCase()} is Batting
+                      {match.status === 'break' ? `${activeInnings.teamName.toUpperCase()} - 1st Innings Complete` : `${activeInnings.teamName.toUpperCase()} is Batting`}
                     </span>
-                    {isFreeHitActive(activeInnings.deliveries) && (
+                    {match.status !== 'break' && isFreeHitActive(activeInnings.deliveries) && (
                       <span className="text-[9px] bg-red-600 outline outline-1 outline-red-500/50 text-white font-black tracking-widest px-2 py-0.5 rounded-full uppercase animate-pulse shadow-md">
                         🔥 FREE HIT
                       </span>
@@ -457,7 +457,7 @@ export default function App() {
                 </div>
 
                 {/* BENTO ITEM 4: TARGET CHASING DETAIL CARD (Strictly shown only on Innings 2) */}
-                {match.currentInnings === 2 && (
+                {match.currentInnings === 2 && match.status === 'live' && (
                   <div className="col-span-2 bg-gray-900 dark:bg-gray-950 p-5 rounded-[1.5rem] text-white flex flex-col justify-between border border-transparent dark:border-gray-900 shadow-sm" id="target-information-card">
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex flex-col">

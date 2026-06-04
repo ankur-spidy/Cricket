@@ -175,7 +175,7 @@ export default function ScoringControls({
         </div>
 
         <div className="flex items-center space-x-2">
-          {!matchCompleted && (
+          {matchStatus === 'live' && (
             <button
               id="btn-clear-over"
               onClick={() => setShowConfirmClearOver(true)}
@@ -186,7 +186,7 @@ export default function ScoringControls({
             </button>
           )}
 
-          {!matchCompleted && !isSecondInnings && (
+          {matchStatus === 'live' && !isSecondInnings && (
             <button
               id="btn-end-innings"
               onClick={() => setShowConfirmEndInnings(true)}
@@ -209,10 +209,15 @@ export default function ScoringControls({
 
       {/* Main Scoring Grid */}
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {isFreeHitActive(deliveries) && !matchCompleted && (
-          <div className="bg-red-500/10 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex items-center justify-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
-            <span>🔥 FREE HIT ACTIVE! (Next ball)</span>
+        {isFreeHitActive(deliveries) && matchStatus === 'live' && (
+          <div className="bg-red-500/10 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex flex-col items-center justify-center space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+              <span>🔥 FREE HIT ACTIVE! (Next ball)</span>
+            </div>
+            <p className="text-[10px] opacity-85 leading-normal normal-case font-bold tracking-wide">
+              Only Run Out or Obstruction counts as out.
+            </p>
           </div>
         )}
 
