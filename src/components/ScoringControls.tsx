@@ -5,6 +5,8 @@
 
 import { useState } from 'react';
 import { Undo2, Redo2, RotateCcw, AlertTriangle, Check, ArrowRight, CornerDownLeft, EyeOff } from 'lucide-react';
+import { Delivery } from '../types';
+import { isFreeHitActive } from '../utils';
 
 interface ScoringControlsProps {
   onAddDelivery: (deliveryData: {
@@ -25,6 +27,7 @@ interface ScoringControlsProps {
   isSecondInnings: boolean;
   isOverEmpty: boolean;
   matchCompleted: boolean;
+  deliveries?: Delivery[];
 }
 
 export default function ScoringControls({
@@ -39,6 +42,7 @@ export default function ScoringControls({
   isSecondInnings,
   isOverEmpty,
   matchCompleted,
+  deliveries = [],
 }: ScoringControlsProps) {
   const [activeExtraMode, setActiveExtraMode] = useState<'none' | 'B' | 'LB' | 'NB' | 'WD'>('none');
   const [showConfirmReset, setShowConfirmReset] = useState(false);
@@ -203,6 +207,13 @@ export default function ScoringControls({
 
       {/* Main Scoring Grid */}
       <div className="max-w-md mx-auto p-4 space-y-4">
+        {isFreeHitActive(deliveries) && !matchCompleted && (
+          <div className="bg-red-500/10 dark:bg-red-950/20 text-red-650 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex items-center justify-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+            <span>🔥 FREE HIT ACTIVE! (Next ball)</span>
+          </div>
+        )}
+
         {matchCompleted ? (
           <div className="py-4 text-center space-y-3" id="match-completed-panel">
             <p className="text-sm font-semibold text-emerald-600">
@@ -217,14 +228,13 @@ export default function ScoringControls({
               <span>Start New Match</span>
             </button>
           </div>
-        ) : activeExtraMode !== 'none' ? (
+        ) : activeExtraMode !== 'none' && activeExtraMode !== 'NB' ? (
           /* Smart Extra Selector Overlay Panel */
           <div className="bg-[#00A86B]/5 dark:bg-[#00A86B]/10 p-3.5 rounded-2xl border border-[#00A86B]/20 animate-in fade-in duration-150">
             <div className="flex justify-between items-center mb-3">
               <span className="text-[10px] font-bold text-[#00A86B] uppercase tracking-widest">
                 {activeExtraMode === 'B' && 'Byes (B) Selector'}
                 {activeExtraMode === 'LB' && 'Leg Byes (LB) Selector'}
-                {activeExtraMode === 'NB' && 'No Balls (NB) Selector'}
                 {activeExtraMode === 'WD' && 'Wides (WD) Selector'}
               </span>
               <button
@@ -266,39 +276,6 @@ export default function ScoringControls({
                   className="py-3 rounded-xl bg-blue-400 hover:bg-blue-500 text-white font-black text-xs"
                 >
                   5 WD
-                </button>
-              </div>
-            )}
-
-            {activeExtraMode === 'NB' && (
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  id="btn-nb-1"
-                  onClick={() => handleNoBallWithRuns(0)}
-                  className="py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs"
-                >
-                  NB (+1)
-                </button>
-                <button
-                  id="btn-nb-run-1"
-                  onClick={() => handleNoBallWithRuns(1)}
-                  className="py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs"
-                >
-                  NB + 1
-                </button>
-                <button
-                  id="btn-nb-boundary-4"
-                  onClick={() => handleNoBallWithRuns(4)}
-                  className="py-3 rounded-xl bg-blue-500/80 hover:bg-blue-500 text-white font-black text-xs"
-                >
-                  NB + 4
-                </button>
-                <button
-                  id="btn-nb-boundary-6"
-                  onClick={() => handleNoBallWithRuns(6)}
-                  className="py-3 rounded-xl bg-blue-400 hover:bg-blue-500 text-white font-black text-xs"
-                >
-                  NB + 6
                 </button>
               </div>
             )}
@@ -520,6 +497,99 @@ export default function ScoringControls({
                 className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md cursor-pointer"
               >
                 End 1st Innings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NO BALLS (NB) SELECTOR MODAL DIALOG */}
+      {activeExtraMode === 'NB' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" id="nb-selector-modal">
+          <div className="bg-gray-950 border border-gray-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl space-y-4 text-white">
+            <div className="text-center">
+              <span className="text-[10px] font-black tracking-widest text-[#00A86B] uppercase block">
+                UmpScore Extra
+              </span>
+              <h2 className="text-sm font-black text-gray-100 uppercase tracking-wide mt-1">
+                NO BALLS (NB) SELECTOR
+              </h2>
+            </div>
+
+            {/* Same design style as WD, B, LB but dark theme with blue gradient buttons in 3x2 grid */}
+            <div className="grid grid-cols-3 gap-3 pt-1">
+              <button
+                id="btn-nb-select-0"
+                type="button"
+                onClick={() => handleNoBallWithRuns(0)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(1 Run)</span>
+              </button>
+              <button
+                id="btn-nb-select-1"
+                type="button"
+                onClick={() => handleNoBallWithRuns(1)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB +1</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(2 Runs)</span>
+              </button>
+              <button
+                id="btn-nb-select-2"
+                type="button"
+                onClick={() => handleNoBallWithRuns(2)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB +2</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(3 Runs)</span>
+              </button>
+              <button
+                id="btn-nb-select-3"
+                type="button"
+                onClick={() => handleNoBallWithRuns(3)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB +3</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(4 Runs)</span>
+              </button>
+              <button
+                id="btn-nb-select-4"
+                type="button"
+                onClick={() => handleNoBallWithRuns(4)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB +4</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(5 Runs)</span>
+              </button>
+              <button
+                id="btn-nb-select-6"
+                type="button"
+                onClick={() => handleNoBallWithRuns(6)}
+                className="py-5 px-1 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white font-black text-sm active:scale-95 transition duration-150 cursor-pointer shadow-md shadow-blue-900/30 flex flex-col items-center justify-center space-y-1"
+              >
+                <span className="text-xs">NB +6</span>
+                <span className="text-[9px] opacity-60 font-mono font-medium">(7 Runs)</span>
+              </button>
+            </div>
+
+            <div className="pt-1 text-center px-1">
+              <p className="text-[10px] text-gray-500 font-bold leading-normal">
+                • Automatically awards 1 extra run.<br/>
+                • Does not count as a legal delivery.<br/>
+                • Activates FREE HIT for the next ball.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                id="btn-nb-modal-cancel"
+                type="button"
+                onClick={() => setActiveExtraMode('none')}
+                className="w-full py-3.5 bg-gray-900 hover:bg-gray-850 text-gray-300 font-black text-xs tracking-widest uppercase rounded-2xl transition duration-150 border border-gray-800 active:scale-95 cursor-pointer"
+              >
+                CANCEL
               </button>
             </div>
           </div>

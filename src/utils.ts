@@ -163,3 +163,21 @@ export function checkMatchStatus(match: MatchState): MatchState {
 
   return updated;
 }
+
+export function isFreeHitActive(deliveries: Delivery[]): boolean {
+  if (!deliveries || deliveries.length === 0) return false;
+  for (let i = deliveries.length - 1; i >= 0; i--) {
+    const d = deliveries[i];
+    if (d.type === 'dead') {
+      continue;
+    }
+    if (d.type === 'noball') {
+      return true;
+    }
+    if (d.type === 'normal' || d.type === 'bye' || d.type === 'legbye' || d.type === 'wicket') {
+      return false;
+    }
+  }
+  return false;
+}
+

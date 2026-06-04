@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Award, Sun, Moon, ArrowRight, Activity, Trash2, Milestone, ChevronRight, BarChart3, HelpCircle } from 'lucide-react';
 import { Delivery, InningsState, MatchState } from './types';
-import { calculateInningsStats, getMatchProgress, checkMatchStatus, getValidBallsCount, formatOvers } from './utils';
+import { calculateInningsStats, getMatchProgress, checkMatchStatus, getValidBallsCount, formatOvers, isFreeHitActive } from './utils';
 import MatchSetup from './components/MatchSetup';
 import Timeline from './components/Timeline';
 import ScoringControls from './components/ScoringControls';
@@ -377,17 +377,30 @@ export default function App() {
                     <Activity size={18} className="text-white/40 animate-pulse" />
                   </div>
 
-                  <span className="text-[10px] font-bold opacity-85 uppercase tracking-widest">
-                    {activeInnings.teamName.toUpperCase()} is Batting
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-bold opacity-85 uppercase tracking-widest">
+                      {activeInnings.teamName.toUpperCase()} is Batting
+                    </span>
+                    {isFreeHitActive(activeInnings.deliveries) && (
+                      <span className="text-[9px] bg-red-650 outline outline-1 outline-red-500/50 text-white font-black tracking-widest px-2 py-0.5 rounded-full uppercase animate-pulse shadow-md">
+                        🔥 FREE HIT
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="flex items-baseline justify-between mt-1">
                     <h1 className="text-5xl font-black tracking-tight tabular-nums" id="runs-wickets-display">
                       {activeStats.totalRuns}<span className="text-white/60 text-3xl font-medium">/{activeStats.wickets}</span>
                     </h1>
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold opacity-80 uppercase tracking-tighter">CRR</p>
-                      <p className="text-2xl font-black font-mono">{activeStats.crr}</p>
+                    <div className="flex items-center space-x-4 text-right">
+                      <div className="border-r border-white/20 pr-4">
+                        <p className="text-[10px] font-bold opacity-80 uppercase tracking-tighter">Over.Ball</p>
+                        <p className="text-2xl font-black font-mono">{Math.floor(activeStats.validBalls / 6)}<span className="text-white/60 text-lg">.</span>{activeStats.validBalls % 6}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold opacity-80 uppercase tracking-tighter">CRR</p>
+                        <p className="text-2xl font-black font-mono">{activeStats.crr}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -395,7 +408,7 @@ export default function App() {
                 {/* BENTO ITEM 2: OVERS CARD */}
                 <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-[1.5rem] border border-transparent dark:border-gray-800 transition-colors" id="overs-card">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter block mb-0.5">Overs</span>
-                  <p className="text-2xl font-black text-gray-900 dark:text-gray-150 tabular-nums">
+                  <p className="text-2xl font-black text-gray-900 dark:text-gray-100 tabular-nums">
                     {activeStats.oversString}<span className="text-gray-400 dark:text-gray-600 text-sm font-bold">/{match.oversLimit}</span>
                   </p>
                 </div>
@@ -417,7 +430,7 @@ export default function App() {
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Target: {matchProg.target} runs</span>
-                        <p className="text-sm font-medium text-gray-150 mt-0.5">
+                        <p className="text-sm font-medium text-gray-100 mt-0.5">
                           Need <span className="text-[#00A86B] font-black">{matchProg.remainingRuns}</span> runs from <span className="text-[#00A86B] font-black">{matchProg.remainingBalls}</span> balls
                         </p>
                       </div>
@@ -534,6 +547,7 @@ export default function App() {
               isSecondInnings={match.currentInnings === 2}
               isOverEmpty={isCurrentOverEmpty()}
               matchCompleted={match.status === 'completed' || match.status === 'break'}
+              deliveries={activeInnings.deliveries}
             />
 
           </div>

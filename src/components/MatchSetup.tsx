@@ -20,17 +20,28 @@ export default function MatchSetup({ onStartMatch }: MatchSetupProps) {
   const [teamA, setTeamA] = useState('Team A');
   const [teamB, setTeamB] = useState('Team B');
   const [oversLimit, setOversLimit] = useState(20);
+  const [customOvers, setCustomOvers] = useState('20');
   const [firstBattingTeam, setFirstBattingTeam] = useState<'Team A' | 'Team B'>('Team A');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teamA.trim() || !teamB.trim() || oversLimit <= 0) return;
+    if (!teamA.trim() || !teamB.trim()) return;
+    
+    // Sanitize oversLimit before starting
+    const parsedOvers = parseInt(customOvers, 10);
+    const finalOvers = isNaN(parsedOvers) || parsedOvers <= 0 ? 20 : Math.min(100, parsedOvers);
+    
     onStartMatch({
       teamA: teamA.trim(),
       teamB: teamB.trim(),
-      oversLimit,
+      oversLimit: finalOvers,
       firstBattingTeam,
     });
+  };
+
+  const handlePresetClick = (preset: number) => {
+    setOversLimit(preset);
+    setCustomOvers(preset.toString());
   };
 
   const oversPresets = [5, 10, 20, 50];
@@ -94,11 +105,11 @@ export default function MatchSetup({ onStartMatch }: MatchSetupProps) {
                 key={preset}
                 type="button"
                 id={`preset-overs-${preset}`}
-                onClick={() => setOversLimit(preset)}
+                onClick={() => handlePresetClick(preset)}
                 className={`py-2 px-1 rounded-xl text-xs font-black border transition active:scale-95 cursor-pointer ${
                   oversLimit === preset
                     ? 'bg-[#00A86B] text-white border-[#00A86B] shadow-sm shadow-[#00A86B]/20'
-                    : 'bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-850 hover:border-gray-300 dark:hover:border-gray-755'
+                    : 'bg-gray-50 dark:bg-gray-950 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 {preset} Ov
@@ -114,9 +125,29 @@ export default function MatchSetup({ onStartMatch }: MatchSetupProps) {
               type="number"
               min={1}
               max={100}
-              value={oversLimit}
-              onChange={(e) => setOversLimit(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-full pl-20 pr-4 py-2.5 rounded-xl border border-gray-250 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-950 dark:text-gray-50 focus:outline-none focus:ring-1 focus:ring-[#00A86B] text-sm font-black"
+              value={customOvers}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCustomOvers(val); // This lets them type, delete, clear, etc.
+                const parsed = parseInt(val, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                  setOversLimit(Math.min(100, parsed)); // Dynamic sync
+                }
+              }}
+              onBlur={() => {
+                // Self-correcting on leave/blur to guarantee a valid final number
+                const parsed = parseInt(customOvers, 10);
+                if (isNaN(parsed) || parsed <= 0) {
+                  setCustomOvers(oversLimit.toString());
+                } else if (parsed > 100) {
+                  setCustomOvers('100');
+                  setOversLimit(100);
+                } else {
+                  setCustomOvers(parsed.toString());
+                  setOversLimit(parsed);
+                }
+              }}
+              className="w-full pl-20 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-950 dark:text-gray-50 focus:outline-none focus:ring-1 focus:ring-[#00A86B] text-sm font-black"
             />
           </div>
         </div>

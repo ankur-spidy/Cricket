@@ -29,90 +29,167 @@ export default function Timeline({ deliveries }: TimelineProps) {
     }
   };
 
-  // Group deliveries into overs. Each over has up to 6 valid balls.
-  // Wait, let's keep a simple list of the most recent deliveries.
-  // Standard Cricket Display shows the current over.
-  // Let's find the current over deliveries (deliveries bowled since the start of the current over).
-  // An over is finished when there are 6 valid balls.
-  // To find the current over's balls, we find how many valid balls have been bowled,
-  // and we take all deliveries since the (Math.floor(validBalls / 6) * 6)th valid ball.
-  
-  const getOverDeliveries = () => {
-    let validCount = 0;
-    const overStartIndex: number[] = [0]; // index in deliveries where each over starts
-    
-    for (let i = 0; i < deliveries.length; i++) {
-      const d = deliveries[i];
+  interface OverGroup {
+    overNumber: number;
+    balls: Delivery[];
+    validCount: number;
+    runs: number;
+    wickets: number;
+  }
+
+  const getOversGrouped = (deliveriesList: Delivery[]): OverGroup[] => {
+    const overs: OverGroup[] = [];
+    let currentOverBalls: Delivery[] = [];
+    let currentValidCount = 0;
+    let currentOverIndex = 1;
+    let currentOverRuns = 0;
+    let currentOverWickets = 0;
+
+    for (let i = 0; i < deliveriesList.length; i++) {
+      const d = deliveriesList[i];
+      currentOverBalls.push(d);
+      currentOverRuns += d.runs;
+      if (d.wicket) {
+        currentOverWickets += 1;
+      }
+      
+      // Check if ball counts as a valid ball in the over
       if (d.type !== 'wide' && d.type !== 'noball' && d.type !== 'dead') {
-        validCount++;
-        if (validCount % 6 === 0 && i < deliveries.length - 1) {
-          overStartIndex.push(i + 1);
-        }
+        currentValidCount++;
+      }
+
+      if (currentValidCount === 6) {
+        overs.push({
+          overNumber: currentOverIndex,
+          balls: [...currentOverBalls],
+          validCount: currentValidCount,
+          runs: currentOverRuns,
+          wickets: currentOverWickets
+        });
+        currentOverBalls = [];
+        currentValidCount = 0;
+        currentOverIndex++;
+        currentOverRuns = 0;
+        currentOverWickets = 0;
       }
     }
-    
-    const lastOverStart = overStartIndex[overStartIndex.length - 1];
-    return deliveries.slice(lastOverStart);
+
+    // Left over active balls
+    if (currentOverBalls.length > 0) {
+      overs.push({
+        overNumber: currentOverIndex,
+        balls: [...currentOverBalls],
+        validCount: currentValidCount,
+        runs: currentOverRuns,
+        wickets: currentOverWickets
+      });
+    }
+
+    return overs;
   };
 
-  const currentOverBalls = getOverDeliveries();
-  const reversedRecent = [...deliveries].reverse().slice(0, 18); // display last 18 balls overall in scroll list
+  const overs = getOversGrouped(deliveries);
 
   return (
-    <div className="space-y-3.5" id="timeline-card">
-      {/* Current Over Card */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[1.5rem] p-4.5 shadow-xs">
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-            Recent Deliveries
+    <div className="space-y-4 font-sans" id="timeline-card">
+      {/* Beautiful grouped overs feed */}
+      {overs.length === 0 ? (
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[1.5rem] p-6 text-center shadow-xs">
+          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 block mb-1">
+            Innings Timeline
           </span>
-          <span className="text-[11px] font-bold text-[#00A86B] tracking-wider uppercase bg-[#00A86B]/10 dark:bg-[#00A86B]/20 px-2 py-0.5 rounded-full">
-            Over {Math.floor(deliveries.filter(d => d.type !== 'wide' && d.type !== 'noball' && d.type !== 'dead').length / 6) + 1}
-          </span>
+          <p className="text-xs text-gray-400 italic py-2">Waiting for first ball of the over...</p>
         </div>
-
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none min-h-[44px]">
-          {currentOverBalls.length === 0 ? (
-            <p className="text-xs text-gray-400 italic py-2">Waiting for first ball of the over...</p>
-          ) : (
-            currentOverBalls.map((d) => (
-              <div
-                key={d.id}
-                className={`flex-shrink-0 w-8.5 h-8.5 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${getBallStyle(
-                  d.type
-                )}`}
-                title={`${d.type.toUpperCase()}: ${d.runs} runs`}
-              >
-                {d.label}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Historical Match Timeline Feed if matches have been bowled */}
-      {deliveries.length > 0 && (
-        <div className="bg-white/50 dark:bg-gray-900/50 rounded-[1.5rem] p-4.5 border border-dashed border-gray-200 dark:border-gray-800">
-          <div className="flex justify-between items-center mb-2.5">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-              Innings Timeline (Recent first)
+      ) : (
+        <div className="space-y-3" id="overs-breakdown-container">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#00A86B] dark:text-[#00A86B]/85">
+              Overs Breakdown (Recent first)
+            </span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+              Total Overs: {overs.length}
             </span>
           </div>
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
-            {reversedRecent.map((d, index) => (
-              <div key={`hist-${d.id}-${index}`} className="flex flex-col items-center space-y-1 flex-shrink-0">
+
+          <div className="space-y-2.5">
+            {[...overs].reverse().map((over) => {
+              const activeValidCount = deliveries.filter(
+                (d) => d.type !== 'wide' && d.type !== 'noball' && d.type !== 'dead'
+              ).length;
+              const currentActiveOverNum = Math.floor(activeValidCount / 6) + 1;
+              const isActive = over.overNumber === currentActiveOverNum;
+
+              return (
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition duration-150 ${getBallStyle(
-                    d.type
-                  )}`}
+                  key={`over-block-${over.overNumber}`}
+                  className={`bg-white dark:bg-gray-900 border ${
+                    isActive
+                      ? 'border-[#00a669] shadow-sm'
+                      : 'border-gray-100 dark:border-gray-800'
+                  } rounded-2xl p-4 transition-all`}
+                  id={`over-group-${over.overNumber}`}
                 >
-                  {d.label}
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`text-xs font-black px-2.5 py-0.5 rounded-lg ${
+                          isActive
+                            ? 'bg-[#00A86B] text-white shadow-xs'
+                            : 'bg-black text-white border border-black'
+                        }`}
+                      >
+                        OVER {over.overNumber}
+                      </span>
+                      {isActive && (
+                        <span className="text-[9px] font-black tracking-widest text-[#00A86B] uppercase bg-[#00A86B]/10 px-1.5 py-0.5 rounded animate-pulse">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-3 text-xs font-bold text-gray-400 dark:text-gray-500">
+                      <span>Runs: <strong className="text-gray-800 dark:text-gray-100 font-mono font-black">{over.runs}</strong></span>
+                      <span className="w-1 h-1 rounded-full bg-gray-200 dark:bg-gray-800"></span>
+                      <span>Wkts: <strong className={over.wickets > 0 ? 'text-red-500 font-black' : 'text-gray-800 dark:text-gray-100 font-mono font-black'}>{over.wickets}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Wrapped Flex for balls, ensuring that 20 wide balls wrap flawlessly! */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {over.balls.map((d, idx) => {
+                      const isExtraBall = d.type === 'wide' || d.type === 'noball' || d.type === 'dead';
+                      return (
+                        <div
+                          key={`ball-elem-${over.overNumber}-${d.id}-${idx}`}
+                          className="flex flex-col items-center space-y-1"
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shadow-xs transition duration-150 ${getBallStyle(
+                              d.type
+                            )}`}
+                            title={`${d.type.toUpperCase()}: ${d.runs} runs`}
+                          >
+                            {d.label}
+                          </div>
+                          <span className="text-[8px] font-mono font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
+                            {isExtraBall
+                              ? d.type === 'wide'
+                                ? 'Wide'
+                                : d.type === 'noball'
+                                ? 'NoBall'
+                                : 'Dead'
+                              : `Ball ${
+                                  over.balls
+                                    .slice(0, idx + 1)
+                                    .filter((b) => b.type !== 'wide' && b.type !== 'noball' && b.type !== 'dead').length
+                                }`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="text-[9px] font-mono font-bold text-gray-400 dark:text-gray-500">
-                  {deliveries.length - index}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
