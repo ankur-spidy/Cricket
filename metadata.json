@@ -1,0 +1,6 @@
+{
+  "name": "Cricket Score Tracker",
+  "description": "A clean, modern, and minimal mobile-first cricket matches scorer and ball tracker for easy one-handed operations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
