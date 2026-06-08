@@ -10,6 +10,9 @@ import { calculateInningsStats, getMatchProgress, checkMatchStatus, getValidBall
 import MatchSetup from './components/MatchSetup';
 import Timeline from './components/Timeline';
 import ScoringControls from './components/ScoringControls';
+import CricketBallLogo from './components/CricketBallLogo';
+import SplashScreen from './components/SplashScreen';
+import { AnimatePresence } from 'motion/react';
 
 const createEmptyInnings = (teamName: string, isBatting: boolean): InningsState => ({
   teamName,
@@ -20,6 +23,8 @@ const createEmptyInnings = (teamName: string, isBatting: boolean): InningsState 
 });
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+
   // Theme Management
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('cricket_theme');
@@ -327,42 +332,48 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200" id="app-root">
-      {/* Absolute Header with Theme switches */}
-      <header className="sticky top-0 bg-white/85 dark:bg-gray-950/85 backdrop-blur-md border-b border-gray-100 dark:border-gray-900 z-40 transition-colors">
-        <div className="max-w-md md:max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-2.5">
-            <span className="p-1.5 rounded-lg bg-[#00A86B]/10 text-[#00A86B]">
-              <Award size={18} fill="currentColor" />
-            </span>
-            <div>
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-50 flex items-center gap-1.5">
-                UmpScore Tracker
-              </span>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                Cricket Scorekeeper
-              </p>
-            </div>
-          </div>
+    <>
+      <AnimatePresence mode="wait">
+        {showSplash && (
+          <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+        )}
+      </AnimatePresence>
 
-          <div className="flex items-center space-x-2">
-            {match.status !== 'setup' && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${getStatusBadgeColor(match.status)}`}>
-                {match.status}
-              </span>
-            )}
-            
-            <button
-              id="theme-toggler"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:text-[#00A86B] dark:hover:text-[#00A86B] transition cursor-pointer"
-              title="Toggle theme mode"
-            >
-              {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
-          </div>
-        </div>
-      </header>
+      {!showSplash && (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#020617] text-gray-900 dark:text-gray-100 transition-colors duration-200" id="app-root">
+          {/* Absolute Header with Theme switches */}
+          <header className="sticky top-0 bg-white/85 dark:bg-[#020617]/85 backdrop-blur-md border-b border-gray-100 dark:border-gray-900/50 z-40 transition-colors">
+            <div className="max-w-md md:max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <CricketBallLogo size={32} className="drop-shadow-md hover:scale-110 active:rotate-180 transition duration-300 cursor-pointer" />
+                <div>
+                  <span className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-wider">
+                    Cricket Score Tracker
+                  </span>
+                  <p className="text-[9px] text-[#10B981] font-mono font-black uppercase tracking-widest">
+                    Official Scorer • CST
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {match.status !== 'setup' && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusBadgeColor(match.status)}`}>
+                    {match.status}
+                  </span>
+                )}
+                
+                <button
+                  id="theme-toggler"
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:text-[#00A86B] dark:hover:text-[#00A86B] transition cursor-pointer border border-transparent dark:border-gray-800"
+                  title="Toggle theme mode"
+                >
+                  {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                </button>
+              </div>
+            </div>
+          </header>
 
       <main className="max-w-md md:max-w-4xl mx-auto px-4 pt-4 pb-96 md:pb-64 space-y-4">
         {match.status === 'setup' ? (
@@ -587,5 +598,7 @@ export default function App() {
         )}
       </main>
     </div>
+      )}
+    </>
   );
 }

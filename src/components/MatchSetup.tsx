@@ -4,8 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { Play, Award } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { MatchState } from '../types';
+import CricketBallLogo from './CricketBallLogo';
 
 interface MatchSetupProps {
   onStartMatch: (setup: {
@@ -49,14 +50,14 @@ export default function MatchSetup({ onStartMatch }: MatchSetupProps) {
   return (
     <div className="w-full max-w-md mx-auto p-6" id="match-setup-container">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#00A86B]/10 text-[#00A86B] mb-3.5 shadow-sm">
-          <Award size={36} />
+        <div className="mb-4 inline-flex">
+          <CricketBallLogo size={80} className="hover:scale-110 hover:rotate-12 transition duration-300 drop-shadow-xl" />
         </div>
         <h1 className="text-2xl font-black tracking-tight text-gray-950 dark:text-gray-50 uppercase">
           Match Setup
         </h1>
         <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">
-          Bento scoring configuration dashboard
+          Cricket Score Tracker Setup Screen
         </p>
       </div>
 
