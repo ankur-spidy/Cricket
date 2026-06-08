@@ -19,7 +19,7 @@ export default function CricketBallLogo({ size = 48, className, ...props }: Cric
       <defs>
         {/* Background Shadow */}
         <filter id="logoShadow" x="-10%" y="-10%" width="130%" height="130%">
-          <feDropShadow dx="0" dy="20" stdDeviation="25" flood-color="#000000" flood-opacity="0.6"/>
+          <feDropShadow dx="0" dy="20" stdDeviation="25" floodColor="#000000" floodOpacity="0.6"/>
         </filter>
         
         {/* 3D Sphere Radial Gradient */}
