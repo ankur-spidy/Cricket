@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Award, Sun, Moon, ArrowRight, Activity, Trash2, Milestone, ChevronRight, BarChart3, HelpCircle } from 'lucide-react';
+import { Award, Sun, Moon, ArrowRight, Activity, Trash2, Milestone, ChevronRight, BarChart3, HelpCircle, Plus, Users, FileDown, FileSpreadsheet } from 'lucide-react';
 import { Delivery, InningsState, MatchState } from './types';
 import { calculateInningsStats, getMatchProgress, checkMatchStatus, getValidBallsCount, formatOvers, isFreeHitActive } from './utils';
+import { exportCricketPDF } from './pdfReport';
 import MatchSetup from './components/MatchSetup';
 import Timeline from './components/Timeline';
 import ScoringControls from './components/ScoringControls';
@@ -14,16 +15,28 @@ import CricketBallLogo from './components/CricketBallLogo';
 import SplashScreen from './components/SplashScreen';
 import { AnimatePresence } from 'motion/react';
 
-const createEmptyInnings = (teamName: string, isBatting: boolean): InningsState => ({
+const createEmptyInnings = (
+  teamName: string,
+  isBatting: boolean,
+  strikerName?: string,
+  nonStrikerName?: string,
+  bowlerName?: string
+): InningsState => ({
   teamName,
   isBatting,
   deliveries: [],
   wickets: 0,
   completed: false,
+  strikerName: strikerName || 'Striker',
+  nonStrikerName: nonStrikerName || 'Non-Striker',
+  bowlerName: bowlerName || 'Bowler',
 });
 
 export default function App() {
   const [showSplash, setShowSplash] = useState<boolean>(true);
+  const [editingField, setEditingField] = useState<'striker' | 'nonStriker' | 'bowler' | null>(null);
+  const [tempName, setTempName] = useState<string>('');
+  const [showSquadDrawer, setShowSquadDrawer] = useState<boolean>(false);
 
   // Theme Management
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -124,20 +137,38 @@ export default function App() {
     teamB: string;
     oversLimit: number;
     firstBattingTeam: 'Team A' | 'Team B';
+    strikerName?: string;
+    nonStrikerName?: string;
+    bowlerName?: string;
+    teamAPlayers?: string[];
+    teamBPlayers?: string[];
   }) => {
     const battingTeam = setup.firstBattingTeam === 'Team A' ? setup.teamA : setup.teamB;
     const bowlingTeam = setup.firstBattingTeam === 'Team A' ? setup.teamB : setup.teamA;
+
+    // Smart default roles for chasing (innings 2)
+    const i2Batsman1 = setup.firstBattingTeam === 'Team A'
+      ? (setup.teamBPlayers?.[0] || 'Striker')
+      : (setup.teamAPlayers?.[0] || 'Striker');
+    const i2Batsman2 = setup.firstBattingTeam === 'Team A'
+      ? (setup.teamBPlayers?.[1] || 'Non-Striker')
+      : (setup.teamAPlayers?.[1] || 'Non-Striker');
+    const i2Bowler = setup.firstBattingTeam === 'Team A'
+      ? (setup.teamAPlayers?.[0] || 'Bowler')
+      : (setup.teamBPlayers?.[0] || 'Bowler');
 
     const freshMatch: MatchState = {
       id: `match-${Date.now()}`,
       teamA: setup.teamA,
       teamB: setup.teamB,
+      teamAPlayers: setup.teamAPlayers,
+      teamBPlayers: setup.teamBPlayers,
       oversLimit: setup.oversLimit,
       firstBattingTeam: setup.firstBattingTeam,
       status: 'live',
       currentInnings: 1,
-      innings1: createEmptyInnings(battingTeam, true),
-      innings2: createEmptyInnings(bowlingTeam, false),
+      innings1: createEmptyInnings(battingTeam, true, setup.strikerName, setup.nonStrikerName, setup.bowlerName),
+      innings2: createEmptyInnings(bowlingTeam, false, i2Batsman1, i2Batsman2, i2Bowler),
     };
 
     setMatch(freshMatch);
@@ -158,16 +189,51 @@ export default function App() {
     }
 
     const timestamp = Date.now();
+    const currentStriker = activeInnings.strikerName || 'Striker';
+    const currentNonStriker = activeInnings.nonStrikerName || 'Non-Striker';
+    const currentBowler = activeInnings.bowlerName || 'Bowler';
+
     const newDelivery: Delivery = {
       ...deliveryInfo,
       id: `d-${timestamp}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp,
+      strikerName: currentStriker,
+      nonStrikerName: currentNonStriker,
+      bowlerName: currentBowler,
     };
+
+    // Determine next striker and non-striker
+    let nextStriker = currentStriker;
+    let nextNonStriker = currentNonStriker;
+
+    // Check if batsman scored odd runs, trigger strike swap
+    const isOddBatmanRuns = 
+      (newDelivery.type === 'normal' && (newDelivery.runs % 2 === 1)) ||
+      ((newDelivery.type === 'bye' || newDelivery.type === 'legbye') && (newDelivery.runs % 2 === 1)) ||
+      (newDelivery.type === 'noball' && (newDelivery.batsmanRuns % 2 === 1));
+
+    if (isOddBatmanRuns) {
+      nextStriker = currentNonStriker;
+      nextNonStriker = currentStriker;
+    }
+
+    // Check if the over has ended (after this ball is added)
+    const isBallValid = newDelivery.type !== 'wide' && newDelivery.type !== 'noball' && newDelivery.type !== 'dead';
+    const newValidCount = totalValidBalls + (isBallValid ? 1 : 0);
+    const isOverComplete = isBallValid && (newValidCount % 6 === 0);
+
+    if (isOverComplete) {
+      const temp = nextStriker;
+      nextStriker = nextNonStriker;
+      nextNonStriker = temp;
+    }
 
     const updatedInnings: InningsState = {
       ...activeInnings,
       deliveries: [...activeInnings.deliveries, newDelivery],
       wickets: deliveryInfo.wicket ? activeInnings.wickets + 1 : activeInnings.wickets,
+      strikerName: nextStriker,
+      nonStrikerName: nextNonStriker,
     };
 
     let updatedMatch: MatchState = {
@@ -280,6 +346,75 @@ export default function App() {
     pushState(updatedMatch);
   };
 
+  const handleUpdatePlayerNames = (updatedPlayers: {
+    strikerName?: string;
+    nonStrikerName?: string;
+    bowlerName?: string;
+  }) => {
+    if (match.status !== 'live') return;
+
+    const inningsKey = match.currentInnings === 1 ? 'innings1' : 'innings2';
+    const activeInnings = match[inningsKey];
+
+    const updatedInnings: InningsState = {
+      ...activeInnings,
+      ...updatedPlayers,
+    };
+
+    const updatedMatch: MatchState = {
+      ...match,
+      [inningsKey]: updatedInnings,
+    };
+
+    setMatch(updatedMatch);
+    pushState(updatedMatch);
+  };
+
+  const handleUpdateSquadPlayer = (team: 'A' | 'B', index: number, newName: string) => {
+    const updatedMatch = { ...match };
+    if (team === 'A') {
+      const players = [...(updatedMatch.teamAPlayers || [])];
+      players[index] = newName;
+      updatedMatch.teamAPlayers = players;
+    } else {
+      const players = [...(updatedMatch.teamBPlayers || [])];
+      players[index] = newName;
+      updatedMatch.teamBPlayers = players;
+    }
+    setMatch(updatedMatch);
+    pushState(updatedMatch);
+  };
+
+  const handleAddSquadPlayer = (team: 'A' | 'B') => {
+    const updatedMatch = { ...match };
+    if (team === 'A') {
+      const players = [...(updatedMatch.teamAPlayers || [])];
+      players.push('');
+      updatedMatch.teamAPlayers = players;
+    } else {
+      const players = [...(updatedMatch.teamBPlayers || [])];
+      players.push('');
+      updatedMatch.teamBPlayers = players;
+    }
+    setMatch(updatedMatch);
+    pushState(updatedMatch);
+  };
+
+  const handleRemoveSquadPlayer = (team: 'A' | 'B', index: number) => {
+    const updatedMatch = { ...match };
+    if (team === 'A') {
+      const players = (updatedMatch.teamAPlayers || []).filter((_, i) => i !== index);
+      if (players.length < 2) return;
+      updatedMatch.teamAPlayers = players;
+    } else {
+      const players = (updatedMatch.teamBPlayers || []).filter((_, i) => i !== index);
+      if (players.length < 2) return;
+      updatedMatch.teamBPlayers = players;
+    }
+    setMatch(updatedMatch);
+    pushState(updatedMatch);
+  };
+
   const handleResetMatch = () => {
     const setupMatch: MatchState = {
       id: '',
@@ -305,6 +440,158 @@ export default function App() {
   const activeInnings = (match.currentInnings === 1 || match.status === 'break') ? match.innings1 : match.innings2;
   const activeStats = calculateInningsStats(activeInnings);
   const matchProg = getMatchProgress(match);
+
+  // Derive squads
+  const isTeamABattingNow = match.status === 'setup' ? false : (
+    match.currentInnings === 1
+      ? match.firstBattingTeam === 'Team A'
+      : match.firstBattingTeam !== 'Team A'
+  );
+  const activeBattingSquad = isTeamABattingNow ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
+  const activeBowlingSquad = isTeamABattingNow ? (match.teamBPlayers || []) : (match.teamAPlayers || []);
+
+  const getBatsmenStats = () => {
+    const statsMap: Record<string, {
+      name: string;
+      runs: number;
+      balls: number;
+      fours: number;
+      sixes: number;
+      isOut: boolean;
+      dismissalBowler?: string;
+      isOnStrike: boolean;
+      isNonStriker: boolean;
+    }> = {};
+
+    const sName = activeInnings.strikerName || 'Striker';
+    const nName = activeInnings.nonStrikerName || 'Non-Striker';
+
+    // Seed the map with current active batsmen
+    statsMap[sName] = {
+      name: sName,
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+      isOut: false,
+      isOnStrike: true,
+      isNonStriker: false,
+    };
+
+    if (nName !== sName) {
+      statsMap[nName] = {
+        name: nName,
+        runs: 0,
+        balls: 0,
+        fours: 0,
+        sixes: 0,
+        isOut: false,
+        isOnStrike: false,
+        isNonStriker: true,
+      };
+    }
+
+    // Process all deliveries
+    activeInnings.deliveries.forEach((d) => {
+      const striker = d.strikerName || 'Striker';
+      
+      // Initialize stats block if not present
+      if (!statsMap[striker]) {
+        statsMap[striker] = {
+          name: striker,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          isOut: false,
+          isOnStrike: false,
+          isNonStriker: false,
+        };
+      }
+
+      // Add batsman runs
+      statsMap[striker].runs += d.batsmanRuns || 0;
+
+      // Add ball faced if it's not a wide
+      if (d.type !== 'wide') {
+        statsMap[striker].balls += 1;
+      }
+
+      // Assess boundaries
+      if (d.batsmanRuns === 4) {
+        statsMap[striker].fours += 1;
+      }
+      if (d.batsmanRuns === 6) {
+        statsMap[striker].sixes += 1;
+      }
+
+      // Check for dismissal
+      if (d.wicket) {
+        statsMap[striker].isOut = true;
+        statsMap[striker].dismissalBowler = d.bowlerName || 'Bowler';
+      }
+    });
+
+    // Ensure currently active players are never marked as isOut in live display
+    if (statsMap[sName]) {
+      statsMap[sName].isOut = false;
+      statsMap[sName].isOnStrike = true;
+    }
+    if (statsMap[nName]) {
+      statsMap[nName].isOut = false;
+      statsMap[nName].isNonStriker = true;
+    }
+
+    return Object.values(statsMap);
+  };
+
+  const getBowlersStats = () => {
+    const statsMap: Record<string, {
+      name: string;
+      balls: number;
+      runs: number;
+      wickets: number;
+    }> = {};
+
+    const bName = activeInnings.bowlerName || 'Bowler';
+    // Seed with current bowler
+    statsMap[bName] = {
+      name: bName,
+      balls: 0,
+      runs: 0,
+      wickets: 0,
+    };
+
+    activeInnings.deliveries.forEach((d) => {
+      const bowler = d.bowlerName || 'Bowler';
+      if (!statsMap[bowler]) {
+        statsMap[bowler] = {
+          name: bowler,
+          balls: 0,
+          runs: 0,
+          wickets: 0,
+        };
+      }
+
+      // Legal ball calculation
+      const isLegal = d.type !== 'wide' && d.type !== 'noball' && d.type !== 'dead';
+      if (isLegal) {
+        statsMap[bowler].balls += 1;
+      }
+
+      // Runs calculation (exclude byes/legbyes)
+      if (d.type !== 'bye' && d.type !== 'legbye') {
+        statsMap[bowler].runs += d.runs || 0;
+      }
+
+      // Wickets
+      if (d.wicket) {
+        statsMap[bowler].wickets += 1;
+      }
+    });
+
+    return Object.values(statsMap);
+  };
 
   const getStatusBadgeColor = (status: string) => {
     if (status === 'live') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
@@ -357,6 +644,18 @@ export default function App() {
               </div>
 
               <div className="flex items-center space-x-2">
+                {match.status !== 'setup' && (
+                  <button
+                    id="btn-export-pdf-header"
+                    onClick={() => exportCricketPDF(match)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider transition cursor-pointer border border-emerald-500/20 shadow-xs active:scale-95 duration-200"
+                    title="Export score to PDF"
+                  >
+                    <FileDown size={13} />
+                    <span className="hidden sm:inline">Export PDF</span>
+                  </button>
+                )}
+
                 {match.status !== 'setup' && (
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusBadgeColor(match.status)}`}>
                     {match.status}
@@ -561,13 +860,23 @@ export default function App() {
                     </div>
                   </div>
 
-                  <button
-                    id="btn-match-completed-restart"
-                    onClick={handleResetMatch}
-                    className="px-6 py-3 bg-[#00A86B] hover:bg-[#00945d] text-white rounded-xl font-bold shadow-md shadow-[#00A86B]/15 transition active:scale-95 text-xs uppercase tracking-wider cursor-pointer"
-                  >
-                    Setup New Game
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+                    <button
+                      id="btn-match-completed-export"
+                      onClick={() => exportCricketPDF(match)}
+                      className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-500/15 transition active:scale-95 text-xs uppercase tracking-wider cursor-pointer inline-flex items-center justify-center gap-1.5"
+                    >
+                      <FileDown size={14} />
+                      Export PDF Scorecard
+                    </button>
+                    <button
+                      id="btn-match-completed-restart"
+                      onClick={handleResetMatch}
+                      className="px-5 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition active:scale-95 text-xs uppercase tracking-wider cursor-pointer border border-gray-200/50 dark:border-gray-700/50"
+                    >
+                      Setup New Game
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -575,6 +884,223 @@ export default function App() {
             {/* BALL TIMELINE (Right-hand sticky column on Wide screen, stacked naturally on mobile) */}
             <div className="col-span-1 md:col-span-5 md:sticky md:top-[5.5rem] space-y-4">
               <Timeline deliveries={activeInnings.deliveries} />
+
+              {/* BENTO ITEM 5: LIVE MATCH SCORECARD (Minimalist Who is Batting, Bowling & Out display) */}
+              {match.status === 'live' && (
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800/60 p-4 rounded-[1.5rem] shadow-xs space-y-3.5 transition-all animate-in fade-in slide-in-from-bottom-3 duration-200" id="live-players-bento">
+                  
+                  {/* LIVE INNINGS SCORECARD CARD (Minimalist Who is Batting, Bowling & Out display) */}
+                  <div className="font-sans" id="live-innings-scorecard">
+                    <div className="bg-gray-50/50 dark:bg-gray-900/20 rounded-xl p-3 border border-gray-100 dark:border-gray-800/80 space-y-3.5">
+                      
+                      {/* Section Header */}
+                      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800/40">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#00A86B] dark:text-emerald-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Live Match State
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-gray-500 dark:text-gray-400">
+                          Wickets Lost: {activeStats.wickets}/10
+                        </span>
+                      </div>
+
+                      {/* Who is Batting & Bowling */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Batting State */}
+                        <div className="space-y-2">
+                          <h5 className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">🏏 Currently Batting</h5>
+                          <div className="space-y-1.5">
+                            {/* Striker */}
+                            <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-emerald-500/[0.04] dark:bg-emerald-500/[0.02] border border-emerald-500/10">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-emerald-500 text-xs">🏏</span>
+                                <span className="font-extrabold text-gray-900 dark:text-gray-100 truncate">
+                                  {activeInnings.strikerName || 'Striker'}
+                                </span>
+                                <span className="text-[7.5px] bg-emerald-500 text-white font-black px-1.5 py-0.2 rounded font-mono uppercase tracking-wider scale-90">Striker</span>
+                              </div>
+                              <span className="font-black text-gray-950 dark:text-gray-50 font-mono text-xs whitespace-nowrap">
+                                {getBatsmenStats().find(b => b.isOnStrike)?.runs ?? 0} <span className="text-gray-400 text-[10px] font-medium">({getBatsmenStats().find(b => b.isOnStrike)?.balls ?? 0}b)</span>
+                              </span>
+                            </div>
+
+                            {/* Non-Striker */}
+                            <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-blue-500/[0.03] dark:bg-blue-500/[0.01] border border-blue-500/10">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-blue-400 text-xs">👤</span>
+                                <span className="font-bold text-gray-700 dark:text-gray-300 truncate">
+                                  {activeInnings.nonStrikerName || 'Non-Striker'}
+                                </span>
+                              </div>
+                              <span className="font-black text-gray-800 dark:text-gray-200 font-mono text-xs whitespace-nowrap">
+                                {getBatsmenStats().find(b => b.isNonStriker)?.runs ?? 0} <span className="text-gray-400 text-[10px] font-medium">({getBatsmenStats().find(b => b.isNonStriker)?.balls ?? 0}b)</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bowling State */}
+                        <div className="space-y-2">
+                          <h5 className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">🔴 Currently Bowling</h5>
+                          <div className="p-2 rounded-lg bg-red-500/[0.03] dark:bg-red-500/[0.01] border border-red-500/10 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-red-500 text-sm">🔴</span>
+                              <span className="font-extrabold text-gray-900 dark:text-gray-100 truncate">
+                                {activeInnings.bowlerName || 'Bowler'}
+                              </span>
+                              <span className="text-[7.5px] bg-red-500 text-white font-black px-1.5 py-0.2 rounded font-mono uppercase tracking-wider scale-90">Active</span>
+                            </div>
+                            <div className="text-right whitespace-nowrap font-mono text-xs">
+                              {(() => {
+                                const stats = getBowlersStats().find(b => b.name === (activeInnings.bowlerName || 'Bowler'));
+                                const overs = stats ? (Math.floor(stats.balls / 6) + (stats.balls % 6) / 10).toFixed(1) : '0.0';
+                                const runs = stats?.runs ?? 0;
+                                const wickets = stats?.wickets ?? 0;
+                                return (
+                                  <span className="font-black text-gray-950 dark:text-gray-50">
+                                    {wickets}<span className="text-red-500 font-extrabold">w</span> / {runs}<span className="text-gray-400 font-normal">r</span> <span className="text-[9px] text-gray-500 font-normal">({overs} ov)</span>
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Who is Out */}
+                      <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-gray-800/40">
+                        <h5 className="text-[9px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">❌ Out / Dismissed Batsmen</h5>
+                        {getBatsmenStats().filter(b => b.isOut).length === 0 ? (
+                          <div className="p-2 bg-gray-50/50 dark:bg-gray-900/20 rounded-xl border border-gray-100 dark:border-gray-800/80 text-center">
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500 italic block">No wickets down yet. Standard innings is clean!</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {getBatsmenStats().filter(b => b.isOut).map((batsman, idx) => (
+                              <div key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 dark:bg-red-500/15 border border-red-500/10 rounded-lg text-xs font-medium text-gray-800 dark:text-gray-250">
+                                <span className="text-red-500 text-[10px]">❌</span>
+                                <span className="font-black text-gray-950 dark:text-gray-100">{batsman.name}</span>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                  ({batsman.runs} runs)
+                                </span>
+                                {batsman.dismissalBowler && (
+                                  <span className="text-[9.5px] text-red-600 dark:text-red-400 font-semibold">
+                                    b. {batsman.dismissalBowler}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {showSquadDrawer && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800/50 space-y-4 animate-in fade-in slide-in-from-top-3 duration-200" id="live-squad-management-pane">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          📋 Live Squad Rosters
+                        </h4>
+                        <span className="text-[8px] text-gray-400 dark:text-gray-500 italic">
+                          Change player names or add extra squad member lines live
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* TEAM A SQUAD */}
+                        <div className="p-3 bg-gray-55/60 dark:bg-gray-950/40 border border-gray-150/50 dark:border-gray-800/60 rounded-2xl space-y-2.5">
+                          <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800/45">
+                            <span className="text-[10px] font-black text-[#00A86B] dark:text-emerald-400 uppercase truncate max-w-[130px]">
+                              {match.teamA} ({match.teamAPlayers?.length || 11} players)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAddSquadPlayer('A')}
+                              className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-[#00A86B]/15 hover:bg-[#00A86B]/25 text-[#00A86B] dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 cursor-pointer border border-[#00A86B]/20"
+                            >
+                              <Plus size={10} strokeWidth={3} />
+                              Add Player
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                            {(match.teamAPlayers || []).map((player, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5">
+                                <span className="text-[8.5px] font-mono font-bold text-gray-450 dark:text-gray-500 min-w-[14px]">
+                                  {idx + 1}.
+                                </span>
+                                <input
+                                  type="text"
+                                  value={player}
+                                  onChange={(e) => handleUpdateSquadPlayer('A', idx, e.target.value)}
+                                  placeholder={`${match.teamA} Player ${idx + 1}`}
+                                  className="flex-1 px-2 py-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-850 rounded-lg text-[10.5px] text-gray-900 dark:text-gray-100 font-bold focus:outline-none focus:ring-1 focus:ring-[#00A86B]"
+                                />
+                                {(match.teamAPlayers || []).length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSquadPlayer('A', idx)}
+                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-md transition"
+                                    title="Remove"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* TEAM B SQUAD */}
+                        <div className="p-3 bg-gray-55/60 dark:bg-gray-950/40 border border-gray-150/50 dark:border-gray-800/60 rounded-2xl space-y-2.5">
+                          <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800/45">
+                            <span className="text-[10px] font-black text-blue-600 dark:text-emerald-400 uppercase truncate max-w-[130px]">
+                              {match.teamB} ({match.teamBPlayers?.length || 11} players)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAddSquadPlayer('B')}
+                              className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-[#00A86B]/15 hover:bg-[#00A86B]/25 text-[#00A86B] dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 cursor-pointer border border-[#00A86B]/20"
+                            >
+                              <Plus size={10} strokeWidth={3} />
+                              Add Player
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                            {(match.teamBPlayers || []).map((player, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5">
+                                <span className="text-[8.5px] font-mono font-bold text-gray-455 dark:text-gray-500 min-w-[14px]">
+                                  {idx + 1}.
+                                </span>
+                                <input
+                                  type="text"
+                                  value={player}
+                                  onChange={(e) => handleUpdateSquadPlayer('B', idx, e.target.value)}
+                                  placeholder={`${match.teamB} Player ${idx + 1}`}
+                                  className="flex-1 px-2 py-1 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-850 rounded-lg text-[10.5px] text-gray-900 dark:text-gray-100 font-bold focus:outline-none focus:ring-1 focus:ring-[#00A86B]"
+                                />
+                                {(match.teamBPlayers || []).length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSquadPlayer('B', idx)}
+                                    className="p-1 text-gray-455 hover:text-red-500 hover:bg-red-500/10 rounded-md transition"
+                                    title="Remove"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* STICKY BOTTOM SCORING PANEL */}
@@ -592,6 +1118,25 @@ export default function App() {
               matchCompleted={match.status === 'completed'}
               matchStatus={match.status}
               deliveries={activeInnings.deliveries}
+              strikerName={activeInnings.strikerName || 'Striker'}
+              nonStrikerName={activeInnings.nonStrikerName || 'Non-Striker'}
+              bowlerName={activeInnings.bowlerName || 'Bowler'}
+              strikerRuns={getBatsmenStats().find(b => b.isOnStrike)?.runs ?? 0}
+              strikerBalls={getBatsmenStats().find(b => b.isOnStrike)?.balls ?? 0}
+              nonStrikerRuns={getBatsmenStats().find(b => b.isNonStriker)?.runs ?? 0}
+              nonStrikerBalls={getBatsmenStats().find(b => b.isNonStriker)?.balls ?? 0}
+              bowlerRuns={getBowlersStats().find(b => b.name === (activeInnings.bowlerName || 'Bowler'))?.runs ?? 0}
+              bowlerWickets={getBowlersStats().find(b => b.name === (activeInnings.bowlerName || 'Bowler'))?.wickets ?? 0}
+              bowlerOvers={(() => {
+                const stats = getBowlersStats().find(b => b.name === (activeInnings.bowlerName || 'Bowler'));
+                return stats ? (Math.floor(stats.balls / 6) + (stats.balls % 6) / 10).toFixed(1) : '0.0';
+              })()}
+              activeBattingSquad={activeBattingSquad}
+              activeBowlingSquad={activeBowlingSquad}
+              onUpdatePlayerNames={handleUpdatePlayerNames}
+              tournamentMode={match.tournamentMode}
+              showSquadDrawer={showSquadDrawer}
+              onToggleSquadDrawer={() => setShowSquadDrawer(!showSquadDrawer)}
             />
 
           </div>

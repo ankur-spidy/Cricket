@@ -29,6 +29,26 @@ interface ScoringControlsProps {
   matchCompleted: boolean;
   matchStatus?: string;
   deliveries?: Delivery[];
+
+  // Custom Live compact stats props for scrolling-free experience
+  strikerName?: string;
+  nonStrikerName?: string;
+  bowlerName?: string;
+  strikerRuns?: number;
+  strikerBalls?: number;
+  nonStrikerRuns?: number;
+  nonStrikerBalls?: number;
+  bowlerRuns?: number;
+  bowlerWickets?: number;
+  bowlerOvers?: string;
+
+  // New props for Current Players (Optional)
+  activeBattingSquad?: string[];
+  activeBowlingSquad?: string[];
+  onUpdatePlayerNames?: (updatedPlayers: { strikerName?: string; nonStrikerName?: string; bowlerName?: string; }) => void;
+  tournamentMode?: boolean;
+  showSquadDrawer?: boolean;
+  onToggleSquadDrawer?: () => void;
 }
 
 export default function ScoringControls({
@@ -45,11 +65,35 @@ export default function ScoringControls({
   matchCompleted,
   matchStatus = 'live',
   deliveries = [],
+
+  // Destructure new compact stats with safe defaults
+  strikerName = 'Striker',
+  nonStrikerName = 'Non-Striker',
+  bowlerName = 'Bowler',
+  strikerRuns = 0,
+  strikerBalls = 0,
+  nonStrikerRuns = 0,
+  nonStrikerBalls = 0,
+  bowlerRuns = 0,
+  bowlerWickets = 0,
+  bowlerOvers = '0.0',
+
+  // Active player management squad props
+  activeBattingSquad = [],
+  activeBowlingSquad = [],
+  onUpdatePlayerNames,
+  tournamentMode = false,
+  showSquadDrawer = false,
+  onToggleSquadDrawer,
 }: ScoringControlsProps) {
   const [activeExtraMode, setActiveExtraMode] = useState<'none' | 'B' | 'LB' | 'NB' | 'WD'>('none');
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showConfirmClearOver, setShowConfirmClearOver] = useState(false);
   const [showConfirmEndInnings, setShowConfirmEndInnings] = useState(false);
+
+  // Name editing state inside ScoringControls
+  const [editingField, setEditingField] = useState<'striker' | 'nonStriker' | 'bowler' | null>(null);
+  const [tempName, setTempName] = useState<string>('');
 
   const handleNormalRun = (runs: number) => {
     onAddDelivery({
@@ -207,8 +251,10 @@ export default function ScoringControls({
         </div>
       </div>
 
+
+
       {/* Main Scoring Grid */}
-      <div className="max-w-md mx-auto p-4 space-y-4">
+      <div className="max-w-md mx-auto p-4 pt-1 space-y-4">
         {isFreeHitActive(deliveries) && matchStatus === 'live' && (
           <div className="bg-red-500/10 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-900/30 p-2.5 rounded-xl text-center text-xs font-black uppercase tracking-wider animate-pulse flex flex-col items-center justify-center space-y-1">
             <div className="flex items-center space-x-2">
@@ -400,6 +446,242 @@ export default function ScoringControls({
               >
                 W
               </button>
+            </div>
+
+            {/* Current Players (Optional) Section inside ScoringControls, right after scoring grids */}
+            <div className="pt-2 border-t border-gray-150 dark:border-gray-800/20 mt-2" id="sc-live-players">
+              <div className="flex justify-between items-center mb-1 pb-0.5">
+                <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Current Players
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = strikerName;
+                      const ns = nonStrikerName;
+                      onUpdatePlayerNames?.({
+                        strikerName: ns,
+                        nonStrikerName: s
+                      });
+                    }}
+                    className="text-[8px] font-black uppercase tracking-wider text-[#00A86B] bg-[#00A86B]/10 hover:bg-[#00A86B]/20 py-0.5 px-2 rounded-full transition cursor-pointer flex items-center gap-1 active:scale-95 border border-[#00A86B]/15"
+                  >
+                    🔄 Swap Strike
+                  </button>
+                  {tournamentMode && onToggleSquadDrawer && (
+                    <button
+                      type="button"
+                      onClick={onToggleSquadDrawer}
+                      className={`text-[8px] font-black uppercase tracking-wider py-0.5 px-2 rounded-full transition cursor-pointer flex items-center gap-1 active:scale-95 border ${
+                        showSquadDrawer
+                          ? 'bg-[#00A86B] text-white border-[#00A86B] shadow-xs'
+                          : 'text-gray-550 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-55 dark:hover:bg-gray-800/50 bg-transparent border-gray-200 dark:border-gray-800/60'
+                      }`}
+                    >
+                      Squads
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 3-Column Grid for Striker, Non-Striker, Bowler */}
+              <div className="grid grid-cols-3 gap-2">
+                {/* STRIKER CARD */}
+                <div className="p-2 bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-500/15 rounded-xl flex flex-col justify-between" id="sc-card-striker">
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1 border-b border-emerald-500/10 pb-0.5">
+                      <span className="text-[7.5px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">🏏 STRIKER</span>
+                      <span className="text-[6.5px] bg-[#00A86B] text-white font-bold px-0.5 rounded scale-90 origin-right">STRIKE</span>
+                    </div>
+
+                    {editingField === 'striker' ? (
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        onUpdatePlayerNames?.({ strikerName: tempName.trim() || 'Striker' });
+                        setEditingField(null);
+                      }} className="flex flex-col space-y-1 mt-1">
+                        {activeBattingSquad && activeBattingSquad.length > 0 && (
+                          <select
+                            value={activeBattingSquad.includes(tempName) ? tempName : ""}
+                            onChange={(e) => {
+                              if (e.target.value) setTempName(e.target.value);
+                            }}
+                            className="w-full text-[9px] font-extrabold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-emerald-500/40 text-gray-950 dark:text-gray-50 focus:outline-none"
+                          >
+                            <option value="">-- Squad --</option>
+                            {activeBattingSquad.map((player, idx) => (
+                              <option key={idx} value={player}>
+                                {player}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            className="w-full text-[9px] font-bold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-emerald-500/40 text-gray-950 dark:text-gray-50 focus:outline-none placeholder-gray-400"
+                            placeholder="Name"
+                            autoFocus
+                          />
+                          <button type="submit" className="p-0.5 bg-[#00A86B] text-white rounded text-[8px] font-bold">✓</button>
+                          <button type="button" onClick={() => setEditingField(null)} className="p-0.5 bg-gray-200 dark:bg-gray-800 text-gray-650 dark:text-gray-300 rounded text-[8px] font-bold">✕</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-1 group mt-0.5">
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <span className="text-[10.5px] font-black text-gray-950 dark:text-gray-100 truncate" title={strikerName}>{strikerName}</span>
+                          <span className="text-[9.5px] font-mono font-black text-[#00A86B] dark:text-emerald-400 whitespace-nowrap">{strikerRuns}({strikerBalls}b)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingField('striker');
+                            setTempName(strikerName);
+                          }}
+                          className="text-[9px] text-gray-400 hover:text-emerald-500 transition cursor-pointer"
+                          title="Edit Name"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NON-STRIKER CARD */}
+                <div className="p-2 bg-blue-50/30 dark:bg-blue-950/10 border border-blue-500/10 rounded-xl flex flex-col justify-between" id="sc-card-nonstriker">
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1 border-b border-blue-500/10 pb-0.5">
+                      <span className="text-[7.5px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">👤 NON-STRIKER</span>
+                    </div>
+
+                    {editingField === 'nonStriker' ? (
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        onUpdatePlayerNames?.({ nonStrikerName: tempName.trim() || 'Non-Striker' });
+                        setEditingField(null);
+                      }} className="flex flex-col space-y-1 mt-1">
+                        {activeBattingSquad && activeBattingSquad.length > 0 && (
+                          <select
+                            value={activeBattingSquad.includes(tempName) ? tempName : ""}
+                            onChange={(e) => {
+                              if (e.target.value) setTempName(e.target.value);
+                            }}
+                            className="w-full text-[9px] font-extrabold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-blue-500/40 text-gray-950 dark:text-gray-50 focus:outline-none"
+                          >
+                            <option value="">-- Squad --</option>
+                            {activeBattingSquad.map((player, idx) => (
+                              <option key={idx} value={player}>
+                                {player}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            className="w-full text-[9px] font-bold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-blue-500/40 text-gray-950 dark:text-gray-50 focus:outline-none placeholder-gray-400"
+                            placeholder="Name"
+                            autoFocus
+                          />
+                          <button type="submit" className="p-0.5 bg-[#00A86B] text-white rounded text-[8px] font-bold">✓</button>
+                          <button type="button" onClick={() => setEditingField(null)} className="p-0.5 bg-gray-200 dark:bg-gray-800 text-gray-650 dark:text-gray-300 rounded text-[8px] font-bold">✕</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-1 group mt-0.5">
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <span className="text-[10.5px] font-black text-gray-800 dark:text-gray-200 truncate" title={nonStrikerName}>{nonStrikerName}</span>
+                          <span className="text-[9.5px] font-mono font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">{nonStrikerRuns}({nonStrikerBalls}b)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingField('nonStriker');
+                            setTempName(nonStrikerName);
+                          }}
+                          className="text-[9px] text-gray-400 hover:text-blue-500 transition cursor-pointer"
+                          title="Edit Name"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* BOWLER CARD */}
+                <div className="p-2 bg-red-500/[0.03] dark:bg-red-950/10 border border-red-500/10 rounded-xl flex flex-col justify-between" id="sc-card-bowler">
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1 border-b border-red-500/10 pb-0.5">
+                      <span className="text-[7.5px] font-black uppercase tracking-wider text-red-500 dark:text-rose-400 truncate">🔴 BOWLER</span>
+                      <span className="text-[6.5px] bg-red-500 text-white font-bold px-0.5 py-0.2 rounded scale-90 origin-right">BOWL</span>
+                    </div>
+
+                    {editingField === 'bowler' ? (
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        onUpdatePlayerNames?.({ bowlerName: tempName.trim() || 'Bowler' });
+                        setEditingField(null);
+                      }} className="flex flex-col space-y-1 mt-1">
+                        {activeBowlingSquad && activeBowlingSquad.length > 0 && (
+                          <select
+                            value={activeBowlingSquad.includes(tempName) ? tempName : ""}
+                            onChange={(e) => {
+                              if (e.target.value) setTempName(e.target.value);
+                            }}
+                            className="w-full text-[9px] font-extrabold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-red-500/40 text-gray-950 dark:text-gray-50 focus:outline-none"
+                          >
+                            <option value="">-- Squad --</option>
+                            {activeBowlingSquad.map((player, idx) => (
+                              <option key={idx} value={player}>
+                                {player}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            className="w-full text-[9px] font-bold px-1 py-0.5 rounded bg-white dark:bg-[#0f172a] border border-red-500/40 text-gray-950 dark:text-gray-50 focus:outline-none placeholder-gray-400"
+                            placeholder="Name"
+                            autoFocus
+                          />
+                          <button type="submit" className="p-0.5 bg-[#00A86B] text-white rounded text-[8px] font-bold">✓</button>
+                          <button type="button" onClick={() => setEditingField(null)} className="p-0.5 bg-gray-200 dark:bg-gray-800 text-gray-650 dark:text-gray-300 rounded text-[8px] font-bold">✕</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-1 group mt-0.5">
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <span className="text-[10.5px] font-black text-gray-800 dark:text-gray-250 truncate" title={bowlerName}>{bowlerName}</span>
+                          <span className="text-[9.5px] font-mono font-black text-rose-500 whitespace-nowrap">{bowlerWickets}w/{bowlerRuns}r ({bowlerOvers})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingField('bowler');
+                            setTempName(bowlerName);
+                          }}
+                          className="text-[9px] text-gray-400 hover:text-red-500 transition cursor-pointer"
+                          title="Edit Name"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

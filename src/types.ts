@@ -14,6 +14,9 @@ export interface Delivery {
   wicket: boolean;
   timestamp: number;
   label: string;       // e.g. "•", "1", "W", "WD", "NB", "1B", "2LB"
+  strikerName?: string;
+  nonStrikerName?: string;
+  bowlerName?: string;
 }
 
 export interface ExtrasBreakdown {
@@ -30,12 +33,17 @@ export interface InningsState {
   deliveries: Delivery[];
   wickets: number;
   completed: boolean;
+  strikerName?: string;
+  nonStrikerName?: string;
+  bowlerName?: string;
 }
 
 export interface MatchState {
   id: string;
   teamA: string;
   teamB: string;
+  teamAPlayers?: string[];
+  teamBPlayers?: string[];
   oversLimit: number;
   firstBattingTeam: 'Team A' | 'Team B';
   status: 'setup' | 'live' | 'break' | 'completed';
@@ -44,4 +52,5 @@ export interface MatchState {
   innings2: InningsState;
   winner?: string;
   margin?: string;
+  tournamentMode?: boolean;
 }
